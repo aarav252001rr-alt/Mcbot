@@ -1,1 +1,50 @@
-
+<!doctype html>
+<html lang="hi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bot Admin</title>
+<style>
+:root{--bg:#e8e6df;--card:#f8f7f3;--ink:#22262b;--mute:#6b7078;--acc:#2f5d8a;--bad:#a8392f;--line:#cfccc2}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:6px 0 12px}h2{font-size:15px;margin:0 0 8px}
+section{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px;margin-bottom:12px}
+input,button{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:#fff;color:var(--ink)}
+button{background:var(--acc);color:#fff;border-color:var(--acc);cursor:pointer}
+button.alt{background:#fff;color:var(--ink);border-color:var(--line)}button.bad{background:var(--bad);border-color:var(--bad)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}.row input{flex:1;min-width:70px}
+#log{height:280px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:4px;padding:8px;font:13px/1.4 ui-monospace,monospace;margin-bottom:8px}
+.sys{color:var(--acc)}#st{color:var(--mute);font-size:14px}#login{display:flex;gap:6px;margin-bottom:12px}
+</style></head><body><main>
+<h1>Minecraft Bot</h1>
+<div id="login"><input id="pw" type="password" placeholder="Admin password"><button onclick="login()">Login</button></div>
+<section><h2>Status</h2><div id="st">Login karo</div>
+<div class="row" style="margin-top:8px"><button onclick="act({type:'connect'})">Connect</button><button class="bad" onclick="act({type:'disconnect'})">Disconnect</button><button class="alt" onclick="act({type:'stop'})">Stop</button></div></section>
+<section><h2>Chat</h2><div id="log"></div>
+<div class="row"><input id="msg" placeholder="Message ya /command" onkeydown="if(event.key==='Enter')say()"><button onclick="say()">Send</button></div></section>
+<section><h2>Move</h2>
+<div class="row"><input id="x" placeholder="x"><input id="y" placeholder="y"><input id="z" placeholder="z"><button onclick="act({type:'goto',x:x.value,y:y.value,z:z.value})">Go to</button></div>
+<div class="row"><input id="pl" placeholder="Player name"><button onclick="act({type:'follow',player:pl.value})">Follow</button><button class="alt" onclick="act({type:'lookat',player:pl.value})">Look at</button></div>
+<div class="row"><button class="alt" onclick="act({type:'jump'})">Jump</button><button class="alt" onclick="act({type:'sneak',on:true})">Sneak on</button><button class="alt" onclick="act({type:'sneak',on:false})">Sneak off</button></div></section>
+<section><h2>Mine and fight</h2>
+<div class="row"><input id="blk" placeholder="Block (oak_log)"><input id="cnt" placeholder="Count" value="10"><button onclick="act({type:'mine',block:blk.value,count:cnt.value})">Mine</button></div>
+<div class="row"><button onclick="act({type:'attack',on:true})">Auto-attack on</button><button class="alt" onclick="act({type:'attack',on:false})">Auto-attack off</button><button class="alt" onclick="act({type:'use'})">Use item</button></div></section>
+<section><h2>Inventory</h2><div id="inv" style="margin-bottom:8px">-</div>
+<div class="row"><input id="it" placeholder="Item name"><input id="dc" placeholder="Count"><button onclick="act({type:'equip',item:it.value})">Equip</button><button class="alt" onclick="act({type:'drop',item:it.value,count:dc.value})">Drop</button></div></section>
+</main><script>
+let key=sessionStorage.getItem('k')||'',es,tm;const $=id=>document.getElementById(id);
+const H=()=>({'Content-Type':'application/json','x-admin-password':key});
+function login(){key=$('pw').value;sessionStorage.setItem('k',key);start()}
+function start(){if(!key)return;if(es)es.close();$('log').innerHTML='';
+es=new EventSource('/api/logs?key='+encodeURIComponent(key));
+es.onmessage=e=>{const m=JSON.parse(e.data),d=document.createElement('div');d.className=m.type;d.textContent=m.text;const l=$('log');l.appendChild(d);l.scrollTop=l.scrollHeight};
+clearInterval(tm);poll();tm=setInterval(poll,3000)}
+async function poll(){const r=await fetch('/api/status',{headers:H()});if(!r.ok){$('st').textContent='Password galat hai';return}
+const s=await r.json();if(!s.online){$('st').textContent='Offline';$('inv').textContent='-';return}
+$('st').textContent=`${s.username} | HP ${Math.round(s.health)} | Food ${s.food} | Pos ${s.pos.join(', ')} | Players: ${s.players.length}${s.mining?' | mining':''}${s.attacking?' | attacking':''}`;
+$('inv').textContent=s.inventory.map(i=>i.name+' x'+i.count).join(', ')||'Khali'}
+async function act(b){const r=await fetch('/api/action',{method:'POST',headers:H(),body:JSON.stringify(b)});
+if(!r.ok){const e=await r.json();const d=document.createElement('div');d.className='sys';d.textContent='Error: '+e.error;$('log').appendChild(d)}setTimeout(poll,500)}
+function say(){const t=$('msg').value.trim();if(t){act({type:'say',text:t});$('msg').value=''}}
+start();
+</script></body></html>
